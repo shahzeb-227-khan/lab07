@@ -1,185 +1,102 @@
-# lab07
-
-ques1 :
-#include <stdio.h>
-#include <pthread.h>
-
-void* thread_func(void* arg) {
-    int id = *(int*)arg;
-    printf("Hello from Thread #%d!\n", id);
-    pthread_exit(NULL);
-}
-
-int main() {
-    printf("Name: Muhammad Shahzeb Alam\nRoll No: SE-23055\n\n");
-
-    pthread_t threads[5];
-    int ids[5];
-
-    for (int i = 0; i < 5; i++) {
-        ids[i] = i;
-        pthread_create(&threads[i], NULL, thread_func, &ids[i]);
-    }
-
-    for (int i = 0; i < 5; i++)
-        pthread_join(threads[i], NULL);
-
-    printf("All threads are done.\n");
-    return 0;
-}
-
-
-
-ques2:
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-
-typedef struct {
-    int thread_id;
-} ThreadData;
-
-void* run(void* arg) {
-    ThreadData* data = (ThreadData*)arg;
-    printf("Thread received ID: %d\n", data->thread_id);
-    pthread_exit(NULL);
-}
-
-int main() {
-    printf("Name: Muhammad Shahzeb Alam\nRoll No: SE-23055\n\n");
-
-    pthread_t threads[4];
-    ThreadData* info[4];
-
-    for (int i = 0; i < 4; i++) {
-        info[i] = malloc(sizeof(ThreadData));
-        info[i]->thread_id = i;
-        pthread_create(&threads[i], NULL, run, info[i]);
-    }
-
-    for (int i = 0; i < 4; i++) {
-        pthread_join(threads[i], NULL);
-        free(info[i]);
-    }
-
-    return 0;
-}
-
-
-ques3:
-#include <stdio.h>
-#include <pthread.h>
-
-#define SIZE 1000000
-#define THREADS 4
-
-long long global_sum = 0;
-pthread_mutex_t lock;
-
-int arr[SIZE];
-
-void* sum_worker(void* arg) {
-    int id = *(int*)arg;
-
-    int start = id * (SIZE / THREADS);
-    int end = start + (SIZE / THREADS);
-
-    long long local_sum = 0;
-
-    for (int i = start; i < end; i++)
-        local_sum += arr[i];
-
-    pthread_mutex_lock(&lock);
-    global_sum += local_sum;
-    pthread_mutex_unlock(&lock);
-
-    pthread_exit(NULL);
-}
-
-int main() {
-    printf("Name: Muhammad Shahzeb Alam\nRoll No: SE-23055\n\n");
-
-    for (int i = 0; i < SIZE; i++)
-        arr[i] = 1;
-
-    pthread_t threads[THREADS];
-    int ids[THREADS];
-
-    pthread_mutex_init(&lock, NULL);
-
-    for (int i = 0; i < THREADS; i++) {
-        ids[i] = i;
-        pthread_create(&threads[i], NULL, sum_worker, &ids[i]);
-    }
-
-    for (int i = 0; i < THREADS; i++)
-        pthread_join(threads[i], NULL);
-
-    pthread_mutex_destroy(&lock);
-
-    printf("Final Sum = %lld\n", global_sum);
-    return 0;
-}
-
-
-ques4:
-#include <stdio.h>
-#include <stdlib.h>
-
-typedef struct {
-    double *a;
-    double *b;
-    double sum;
-    int veclen;
-} DOTDATA;
-
-#define VECLEN 100000
-DOTDATA dotstr;
-
-void dotprod() {
-    int start, end, i;
-    double mysum, *x, *y;
-
-    start = 0;
-    end = dotstr.veclen;
-    x = dotstr.a;
-    y = dotstr.b;
-
-    mysum = 0;
-    for (i = start; i < end; i++) {
-        mysum += (x[i] * y[i]);
-    }
-    dotstr.sum = mysum;
-}
-
-int main(int argc, char *argv[]) {
-
-    printf("Name: Muhammad Shahzeb Alam\nRoll No: SE-23055\n\n");
-
-    int i, len;
-    double *a, *b;
-
-    len = VECLEN;
-    a = (double*) malloc(len * sizeof(double));
-    b = (double*) malloc(len * sizeof(double));
-
-    for (i = 0; i < len; i++) {
-        a[i] = 1.0;
-        b[i] = a[i];
-    }
-
-    dotstr.veclen = len;
-    dotstr.a = a;
-    dotstr.b = b;
-    dotstr.sum = 0;
-
-    dotprod();
-
-    printf("Sum = %f\n", dotstr.sum);
-    
-    free(a);
-    free(b);
-
-    return 0;
-}
-
+Lab 12 
+ 
+ 
+# producer_consumer.py 
+import threading 
+import time 
+import random 
+from collections import deque 
+ 
+# --- Configuration --- 
+BUFFER_SIZE = 5 
+PRODUCER_COUNT = 2 
+CONSUMER_COUNT = 3 
+ 
+# --- Shared Resources --- 
+buffer = deque(maxlen=BUFFER_SIZE) 
+ 
+# --- Synchronization Primitives --- 
+empty = threading.Semaphore(BUFFER_SIZE)  # Tracks empty slots 
+full = threading.Semaphore(0)              # Tracks filled slots 
+mutex = threading.Lock()                   # Ensures mutual exclusion 
+ 
+# --- Producer Thread --- 
+def producer(producer_id): 
+    global buffer 
+    item_counter = 0 
+    while True: 
+        item = f"Item-{producer_id}-{item_counter}" 
+         
+        # Wait if buffer is full 
+        empty.acquire() 
+         
+        # Critical section: add to buffer 
+        mutex.acquire() 
+        buffer.append(item) 
+        print(f"Producer {producer_id} produced {item}. Buffer: {list(buffer)}") 
+        mutex.release() 
+         
+        # Signal that buffer has one more item 
+        full.release() 
+         
+        # Simulate producing an item 
+        time.sleep(random.uniform(0.5, 2)) 
+        item_counter += 1 
+ 
+# --- Consumer Thread --- 
+def consumer(consumer_id): 
+    global buffer 
+    while True: 
+        # Wait if buffer is empty 
+        full.acquire() 
+         
+        # Critical section: remove from buffer 
+        mutex.acquire() 
+        item = buffer.popleft() 
+        print(f"Consumer {consumer_id} consumed {item}. Buffer: {list(buffer)}") 
+        mutex.release() 
+         
+        # Signal that buffer has one more empty slot 
+        empty.release() 
+         
+        # Simulate consuming an item 
+        time.sleep(random.uniform(1, 3)) 
+ 
+# --- Main Application --- 
+if __name__ == "__main__": 
+    threads = [] 
+     
+    print("=" * 70) 
+    print("PRODUCER-CONSUMER PROBLEM SIMULATION") 
+    print("=" * 70) 
+    print(f"Buffer Size: {BUFFER_SIZE}") 
+    print(f"Producers: {PRODUCER_COUNT}") 
+    print(f"Consumers: {CONSUMER_COUNT}") 
+    print("=" * 70) 
+    print() 
+     
+    # Create and start producer threads 
+    for i in range(PRODUCER_COUNT): 
+        thread = threading.Thread(target=producer, args=(i,), daemon=True) 
+        threads.append(thread) 
+        thread.start() 
+     
+    # Create and start consumer threads 
+    for i in range(CONSUMER_COUNT): 
+        thread = threading.Thread(target=consumer, args=(i,), daemon=True) 
+        threads.append(thread) 
+        thread.start() 
+     
+    # Run for 20 seconds then exit 
+    try: 
+        time.sleep(20) 
+        print("\n" + "=" * 70) 
+        print("Simulation completed successfully!") 
+        print("=" * 70) 
+    except KeyboardInterrupt: 
+        print("\n" + "=" * 70) 
+        print("Simulation interrupted by user") 
+        print("=" * 70) 
+ 
+ 
+ 
